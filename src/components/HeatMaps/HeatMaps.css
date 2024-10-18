@@ -1,0 +1,154 @@
+:root {
+  --navbar-height: 80px;
+  --primary-bg: #1a1a2e;
+  --secondary-bg: #16213e;
+  --accent-color: #0f3460;
+  --text-color: #e94560;
+  --text-light: #f1f1f1;
+}
+
+body {
+  background-color: var(--primary-bg);
+  color: var(--text-light);
+  font-family: "Arial", sans-serif;
+}
+
+.heatmap-page {
+  padding-top: var(--navbar-height);
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.heatmap-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background-color: var(--secondary-bg);
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.heatmap-header h1 {
+  color: var(--text-color);
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.heatmap-header p {
+  color: var(--text-light);
+  font-size: 1.2rem;
+}
+
+.heatmap-container {
+  width: 100%;
+  height: 70vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: var(--secondary-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+gecko-coin-heatmap-widget {
+  width: 100%;
+  height: 100%;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.spinner {
+  border: 4px solid var(--text-light);
+  border-top: 4px solid var(--text-color);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.heatmap-legend {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: var(--secondary-bg);
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin: 0 1rem;
+}
+
+.color-box {
+  width: 20px;
+  height: 20px;
+  margin-right: 0.5rem;
+  border-radius: 4px;
+}
+
+.color-box.green {
+  background-color: #4cd137;
+}
+.color-box.red {
+  background-color: #e84118;
+}
+.color-box.neutral {
+  background-color: #7f8fa6;
+}
+
+/* Hide CoinGecko watermark */
+.gecko-watermark,
+.gecko-watermark-container {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  :root {
+    --navbar-height: 60px;
+  }
+
+  .heatmap-header h1 {
+    font-size: 2rem;
+  }
+
+  .heatmap-header p {
+    font-size: 1rem;
+  }
+
+  .heatmap-container {
+    height: 60vh;
+  }
+
+  .heatmap-legend {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .legend-item {
+    margin: 0.5rem 0;
+  }
+}
