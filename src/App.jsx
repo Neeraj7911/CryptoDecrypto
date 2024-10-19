@@ -12,6 +12,8 @@ import HeatMaps from "./components/HeatMaps/HeatMaps";
 import Signup from "./components/SignUp/Signup";
 import Login from "./components/Login/Login";
 import WishlistPage from "./components/WishlistPage/WishlistPage";
+import Trades from "./components/Navbar/Trades";
+import ProfileSettings from "./components/Navbar/ProfileSettings";
 
 const App = () => {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -35,6 +37,8 @@ const App = () => {
         <Route path="/Get-Started" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/Wishlist" element={<WishlistPage />} />
+        <Route path="/trades" element={<Trades />} />
+        <Route path="/profile-settings" element={<ProfileSettings />} />
       </Routes>
 
       <Footer />

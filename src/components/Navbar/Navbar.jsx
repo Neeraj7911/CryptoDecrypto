@@ -268,7 +268,7 @@ const Navbar = () => {
                   </button>
                   {isDropdownOpen && (
                     <div className="profile-dropdown">
-                      <Link to="/profile" className="dropdown-item">
+                      <Link to="/profile-settings" className="dropdown-item">
                         <FaUser /> Profile Settings
                       </Link>
                       <Link to="/trades" className="dropdown-item">
@@ -398,9 +398,7 @@ const Navbar = () => {
                 />
               )}
               <button onClick={handleTransaction}>
-                {transactionType === "deposit"
-                  ? "Generate QR Code"
-                  : "Withdraw"}
+                {transactionType === "deposit" ? "Add Now" : "Withdraw"}
               </button>
             </div>
             {isQrCodeVisible && (

@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 const firebaseConfig = {
   apiKey: "AIzaSyCmWBou3INAmvQnerlTESAeCPKBffEP2uk",
   authDomain: "cryptodecrypto-96808.firebaseapp.com",
@@ -24,6 +25,7 @@ const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 export {
   auth,
@@ -33,4 +35,5 @@ export {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   db,
+  storage,
 };
