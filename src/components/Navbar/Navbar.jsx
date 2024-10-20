@@ -1,5 +1,5 @@
-/* eslint-disable no-unused-vars */
 /* eslint-disable react/no-unknown-property */
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -15,11 +15,10 @@ import {
   FaWallet,
   FaMoneyBillWave,
   FaQrcode,
+  FaChartLine,
 } from "react-icons/fa";
 import { TbBrandCoinbase } from "react-icons/tb";
 import { QRCodeSVG } from "qrcode.react";
-import Signup from "../SignUp/Signup";
-import Login from "../Login/Login";
 import { auth, db } from "../../Firebase/firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
@@ -40,7 +39,7 @@ const DefaultAvatar = () => (
   </svg>
 );
 
-const Navbar = () => {
+export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -60,6 +59,8 @@ const Navbar = () => {
   const [upiId, setUpiId] = useState("");
   const [qrCodeData, setQrCodeData] = useState("");
   const [isQrCodeVisible, setIsQrCodeVisible] = useState(false);
+  const [portfolio, setPortfolio] = useState([]);
+  const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -67,14 +68,30 @@ const Navbar = () => {
       if (currentUser) {
         await fetchProfilePic(currentUser);
         await fetchBalance(currentUser.uid);
+        await fetchPortfolio(currentUser.uid);
       } else {
         setProfilePic(null);
         setBalance(0);
+        setPortfolio([]);
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 10;
+      if (isScrolled !== scrolled) {
+        setScrolled(isScrolled);
+      }
+    };
+
+    document.addEventListener("scroll", handleScroll);
+    return () => {
+      document.removeEventListener("scroll", handleScroll);
+    };
+  }, [scrolled]);
 
   const fetchProfilePic = async (currentUser) => {
     try {
@@ -109,6 +126,55 @@ const Navbar = () => {
     }
   };
 
+  const fetchPortfolio = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      if (userDoc.exists() && userDoc.data().portfolio) {
+        const portfolioData = userDoc.data().portfolio;
+        const portfolioArray = Object.entries(portfolioData).map(
+          ([coinId, trades]) => {
+            const totalQuantity = trades.reduce(
+              (sum, trade) => sum + trade.quantity,
+              0
+            );
+            const totalCost = trades.reduce(
+              (sum, trade) => sum + trade.quantity * trade.purchasePrice,
+              0
+            );
+            const averagePrice = totalCost / totalQuantity;
+            return { coinId, quantity: totalQuantity, averagePrice };
+          }
+        );
+        setPortfolio(portfolioArray);
+      } else {
+        setPortfolio([]);
+      }
+    } catch (error) {
+      console.error("Error fetching portfolio:", error);
+      setPortfolio([]);
+    }
+  };
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const openSignup = () => setIsSignupOpen(true);
+  const closeSignup = () => setIsSignupOpen(false);
+  const openLogin = () => setIsLoginOpen(true);
+  const closeLogin = () => setIsLoginOpen(false);
+  const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
+  const toggleWallet = () => setIsWalletOpen(!isWalletOpen);
+  const togglePortfolio = () => setIsPortfolioOpen(!isPortfolioOpen);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsDropdownOpen(false);
+      setProfilePic(null);
+      setBalance(0);
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
+
   const handleDeposit = () => {
     const amount = parseFloat(transactionAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -116,7 +182,6 @@ const Navbar = () => {
       return;
     }
 
-    // Generate a unique QR code data
     const qrData = JSON.stringify({
       type: "deposit",
       amount: amount,
@@ -160,8 +225,6 @@ const Navbar = () => {
   };
 
   const verifyDeposit = async () => {
-    // In a real-world scenario, this would be done server-side
-    // Here we're simulating the verification process
     const depositData = JSON.parse(qrCodeData);
     const amount = depositData.amount;
 
@@ -175,39 +238,6 @@ const Navbar = () => {
     } catch (error) {
       console.error("Error verifying deposit:", error);
       alert("Error verifying deposit");
-    }
-  };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 10;
-      if (isScrolled !== scrolled) {
-        setScrolled(isScrolled);
-      }
-    };
-
-    document.addEventListener("scroll", handleScroll);
-    return () => {
-      document.removeEventListener("scroll", handleScroll);
-    };
-  }, [scrolled]);
-
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-  const openSignup = () => setIsSignupOpen(true);
-  const closeSignup = () => setIsSignupOpen(false);
-  const openLogin = () => setIsLoginOpen(true);
-  const closeLogin = () => setIsLoginOpen(false);
-  const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
-  const toggleWallet = () => setIsWalletOpen(!isWalletOpen);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setIsDropdownOpen(false);
-      setProfilePic(null);
-      setBalance(0);
-    } catch (error) {
-      console.error("Error signing out: ", error);
     }
   };
 
@@ -274,6 +304,18 @@ const Navbar = () => {
                       <Link to="/trades" className="dropdown-item">
                         <FaExchangeAlt /> Trades
                       </Link>
+                      <button
+                        style={{
+                          border: "none",
+                          cursor: "pointer",
+                          backgroundColor: "white",
+                          fontSize: "16px",
+                        }}
+                        onClick={togglePortfolio}
+                        className="dropdown-item"
+                      >
+                        <FaChartLine /> Portfolio
+                      </button>
                       <Link to="/support" className="dropdown-item">
                         <FaQuestionCircle /> Help and Support
                       </Link>
@@ -303,9 +345,6 @@ const Navbar = () => {
           </div>
         </div>
       </nav>
-
-      {isSignupOpen && <Signup onClose={closeSignup} />}
-      {isLoginOpen && <Login onClose={closeLogin} />}
 
       {isWalletOpen && (
         <div className="modal-overlay">
@@ -415,6 +454,39 @@ const Navbar = () => {
         </div>
       )}
 
+      {isPortfolioOpen && (
+        <div className="modal-overlay">
+          <div className="modal portfolio-modal">
+            <h2>Your Crypto Portfolio</h2>
+            <div className="portfolio-list">
+              <div className="portfolio-item portfolio-header">
+                <span className="coin-id">Coin</span>
+                <span className="coin-quantity">Quantity</span>
+                <span className="coin-avg-price">Avg. Price</span>
+                <span className="coin-status">Status</span>
+              </div>
+              {portfolio.map((coin) => (
+                <div key={coin.coinId} className="portfolio-item">
+                  <span className="coin-id">{coin.coinId.toUpperCase()}</span>
+                  <span className="coin-quantity">
+                    {coin.quantity.toFixed(8)}
+                  </span>
+                  <span className="coin-avg-price">
+                    ${coin.averagePrice.toFixed(2)}
+                  </span>
+                  <span className={`coin-status ${getCoinStatus(coin)}`}>
+                    {getCoinStatus(coin) === "profit" ? "Profit" : "Loss"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button onClick={togglePortfolio} className="close-btn">
+              Close Portfolio
+            </button>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .navbar {
           position: fixed;
@@ -462,7 +534,6 @@ const Navbar = () => {
           display: flex;
           list-style: none;
           margin: 0;
-
           padding: 0;
         }
         .nav-links li {
@@ -604,30 +675,33 @@ const Navbar = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.8);
           display: flex;
           justify-content: center;
           align-items: center;
           z-index: 2000;
         }
         .modal {
-          background: #fff;
+          background: white;
           padding: 2rem;
-          border-radius: 8px;
+          border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           width: 90%;
           max-width: 500px;
           color: black;
         }
         .modal h2 {
-          margin-bottom: 1rem;
+          margin-bottom: 1.5rem;
           text-align: center;
+          color: #f1c40f;
+          font-size: 1.8rem;
+          border-bottom: 2px solid #f1c40f;
+          padding-bottom: 0.5rem;
         }
         .wallet-balance {
           font-size: 1.2rem;
           margin-bottom: 1rem;
           text-align: center;
-          color: black;
         }
         .wallet-actions {
           display: flex;
@@ -662,9 +736,15 @@ const Navbar = () => {
           background-color: #e2b607;
         }
         .close-btn {
-          margin-top: 1rem;
-          background-color: #e74c3c !important;
-          color: #fff !important;
+          margin-top: 1.5rem;
+          background-color: #f1c40f !important;
+          color: #1a1a1a !important;
+          font-weight: bold;
+          transition: all 0.3s ease;
+        }
+        .close-btn:hover {
+          background-color: #f39c12 !important;
+          transform: translateY(-2px);
         }
         .qr-code-section {
           display: flex;
@@ -674,6 +754,72 @@ const Navbar = () => {
         }
         .qr-code-section h3 {
           margin-bottom: 1rem;
+        }
+        .portfolio-modal {
+          max-width: 600px;
+          background-color: #1a1a1a;
+          color: #ffffff;
+          border-radius: 12px;
+          padding: 2rem;
+        }
+        .portfolio-modal h2 {
+          font-size: 1.8rem;
+          margin-bottom: 1.5rem;
+          color: #f1c40f;
+          border-bottom: 2px solid #f1c40f;
+          padding-bottom: 0.5rem;
+        }
+        .portfolio-list {
+          margin-top: 1rem;
+          max-height: 400px;
+          overflow-y: auto;
+          padding-right: 10px;
+        }
+        .portfolio-list::-webkit-scrollbar {
+          width: 8px;
+        }
+        .portfolio-list::-webkit-scrollbar-track {
+          background: #2c2c2c;
+          border-radius: 4px;
+        }
+        .portfolio-list::-webkit-scrollbar-thumb {
+          background: #f1c40f;
+          border-radius: 4px;
+        }
+        .portfolio-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          border-bottom: 1px solid #333;
+          transition: background-color 0.3s ease;
+        }
+        .portfolio-item:hover {
+          background-color: #2c2c2c;
+        }
+        .coin-id {
+          font-weight: bold;
+          font-size: 1.1rem;
+          color: #f1c40f;
+        }
+        .coin-quantity,
+        .coin-avg-price {
+          color: #bbb;
+        }
+        .coin-status {
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-weight: bold;
+          text-transform: uppercase;
+          font-size: 0.8rem;
+        }
+        .coin-status.profit {
+          background-color: #2ecc71;
+          color: #fff;
+        }
+        .coin-status.loss {
+          background-color: #e74c3c;
+          color: #fff;
         }
         @media (max-width: 768px) {
           .nav-links {
@@ -711,6 +857,10 @@ const Navbar = () => {
       `}</style>
     </>
   );
-};
+}
 
-export default Navbar;
+function getCoinStatus(coin) {
+  // This function should compare the current price with the average price
+  // For demonstration purposes, we'll use a random boolean
+  return Math.random() > 0.5 ? "profit" : "loss";
+}

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-undef */
 /* eslint-disable react/prop-types */
 /* eslint-disable no-unused-vars */
@@ -193,6 +194,7 @@ const TransactionModal = ({
   currentPrice,
   balance,
   onTransaction,
+  ownedQuantity,
 }) => {
   const [quantity, setQuantity] = useState("");
 
@@ -219,6 +221,9 @@ const TransactionModal = ({
         </h2>
         <p>Current Price: ${currentPrice.toFixed(2)}</p>
         <p>Your Balance: ${balance.toFixed(2)}</p>
+        <p>
+          Owned Quantity: {ownedQuantity.toFixed(8)} {coinId.toUpperCase()}
+        </p>
         <input
           type="number"
           value={quantity}
@@ -243,6 +248,7 @@ export default function Component() {
   const [user, setUser] = useState(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState("");
+  const [ownedQuantity, setOwnedQuantity] = useState(0);
 
   const fetchCoinData = useCallback(() => {
     const coin = allCoin.find((c) => c.id === id || c.symbol === id);
@@ -264,13 +270,15 @@ export default function Component() {
       setUser(currentUser);
       if (currentUser) {
         await fetchBalance(currentUser.uid);
+        await fetchOwnedQuantity(currentUser.uid);
       } else {
         setBalance(0);
+        setOwnedQuantity(0);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [id]);
 
   const fetchBalance = async (uid) => {
     try {
@@ -284,6 +292,26 @@ export default function Component() {
     } catch (error) {
       console.error("Error fetching balance:", error);
       setBalance(0);
+    }
+  };
+
+  const fetchOwnedQuantity = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      if (userDoc.exists() && userDoc.data().portfolio) {
+        const portfolio = userDoc.data().portfolio;
+        const coinHoldings = portfolio[id] || [];
+        const totalQuantity = coinHoldings.reduce(
+          (total, trade) => total + trade.quantity,
+          0
+        );
+        setOwnedQuantity(totalQuantity);
+      } else {
+        setOwnedQuantity(0);
+      }
+    } catch (error) {
+      console.error("Error fetching owned quantity:", error);
+      setOwnedQuantity(0);
     }
   };
 
@@ -316,11 +344,6 @@ export default function Component() {
           }),
         };
       } else if (type === "sell") {
-        const ownedQuantity =
-          userData.portfolio?.[id]?.reduce(
-            (total, trade) => total + trade.quantity,
-            0
-          ) || 0;
         if (amount > ownedQuantity) {
           alert(`You don't have enough ${id} to sell`);
           return;
@@ -349,6 +372,7 @@ export default function Component() {
       });
 
       setBalance(newBalance);
+      await fetchOwnedQuantity(user.uid);
       alert(
         `Successfully ${type === "buy" ? "bought" : "sold"} ${amount} ${id}`
       );
@@ -434,6 +458,7 @@ export default function Component() {
           coinId={id}
           currentPrice={currentCoin.current_price}
           balance={balance}
+          ownedQuantity={ownedQuantity}
           onTransaction={handleTransaction}
         />
       )}

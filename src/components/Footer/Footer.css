@@ -1,8 +1,133 @@
 .footer {
+  background-color: #1a1a2e;
+  color: #e0e0e0;
+  padding: 3rem 0;
+  font-family: "Arial", sans-serif;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.footer-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.footer-info {
+  flex: 1;
+}
+
+.footer-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+}
+
+.footer-creator {
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.footer-copyright {
+  font-size: 0.8rem;
+  color: #a0a0a0;
+}
+
+.footer-links {
+  text-align: right;
+}
+
+.footer-links h3 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.social-links {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.social-links a {
+  color: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+  color: #ffffff;
+  transform: translateY(-3px);
+}
+
+.footer-thanks {
+  border-top: 1px solid #2a2a3e;
+  padding-top: 2rem;
   text-align: center;
-  margin: auto;
-  max-width: 80%;
-  border-top: 1px solid #989898;
-  padding: 15px 0px;
-  font-size: 13px;
+}
+
+.footer-thanks h3 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.footer-thanks p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.footer-thanks a {
+  color: #4a90e2;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  position: relative;
+}
+
+.footer-thanks a::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  bottom: -2px;
+  left: 0;
+  background-color: #4a90e2;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.footer-thanks a:hover {
+  color: #6aa9f4;
+}
+
+.footer-thanks a:hover::after {
+  transform: scaleX(1);
+}
+
+@media (max-width: 768px) {
+  .footer-main {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .footer-info,
+  .footer-links {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .social-links {
+    justify-content: center;
+  }
+
+  .footer-links h3 {
+    margin-top: 1rem;
+  }
 }
