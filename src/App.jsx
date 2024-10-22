@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
 import Navbar from "./components/Navbar/Navbar";
 import { Routes, Route } from "react-router-dom";
@@ -17,16 +16,16 @@ import ProfileSettings from "./components/Navbar/ProfileSettings";
 
 const App = () => {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
 
-  // Function to open Signup modal
   const openSignup = () => setIsSignupOpen(true);
-
-  // Function to close Signup modal
   const closeSignup = () => setIsSignupOpen(false);
+  const openLogin = () => setIsLoginOpen(true);
+  const closeLogin = () => setIsLoginOpen(false);
 
   return (
     <div className="app">
-      <Navbar />
+      <Navbar openLogin={openLogin} openSignup={openSignup} />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/coin/:coinId" element={<Coin />} />
@@ -40,8 +39,9 @@ const App = () => {
         <Route path="/trades" element={<Trades />} />
         <Route path="/profile-settings" element={<ProfileSettings />} />
       </Routes>
-
       <Footer />
+      {isLoginOpen && <Login onClose={closeLogin} />}
+      {isSignupOpen && <Signup onClose={closeSignup} />}
     </div>
   );
 };
