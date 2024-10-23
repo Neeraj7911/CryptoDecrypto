@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, color } from "framer-motion";
 
 const News = () => {
   const [news, setNews] = useState([]);
@@ -144,19 +144,20 @@ const styles = {
     maxWidth: "1200px",
     margin: "0 auto",
     padding: "20px",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#2c260b",
     minHeight: "100vh",
   },
   title: {
     fontSize: "2.5rem",
-    color: "#333",
+    color: "#f39c12",
     textAlign: "center",
-    marginBottom: "30px",
+    marginTop: "60px",
   },
   newsContainer: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
     gap: "20px",
+    marginTop: "35px",
   },
   newsCard: {
     backgroundColor: "#fff",
@@ -174,6 +175,7 @@ const styles = {
     fontSize: "1.2rem",
     padding: "15px",
     margin: "0",
+    color: "#333",
   },
   newsDescription: {
     fontSize: "0.9rem",
@@ -183,7 +185,7 @@ const styles = {
   readMore: {
     display: "inline-block",
     padding: "10px 15px",
-    backgroundColor: "#007bff",
+    backgroundColor: "#f39c12",
     color: "#fff",
     textDecoration: "none",
     borderRadius: "5px",

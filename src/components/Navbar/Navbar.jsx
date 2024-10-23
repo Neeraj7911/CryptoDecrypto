@@ -323,13 +323,13 @@ function Navbar({ openLogin, openSignup }) {
                     >
                       <FaExchangeAlt aria-hidden="true" /> Trades
                     </Link>
-                    <button
+                    <Link
                       onClick={togglePortfolio}
                       className="dropdown-item"
                       role="menuitem"
                     >
                       <FaChartLine aria-hidden="true" /> Portfolio
-                    </button>
+                    </Link>
                     <Link
                       to="/support"
                       className="dropdown-item"
@@ -441,30 +441,34 @@ function Navbar({ openLogin, openSignup }) {
                 {transactionType === "withdraw" &&
                   withdrawMethod === "bank" && (
                     <div className="bank-details">
-                      <input
-                        type="text"
-                        value={bankDetails.accountNumber}
-                        onChange={(e) =>
-                          setBankDetails({
-                            ...bankDetails,
-                            accountNumber: e.target.value,
-                          })
-                        }
-                        placeholder="Account Number"
-                        aria-label="Account Number"
-                      />
-                      <input
-                        type="text"
-                        value={bankDetails.ifscCode}
-                        onChange={(e) =>
-                          setBankDetails({
-                            ...bankDetails,
-                            ifscCode: e.target.value,
-                          })
-                        }
-                        placeholder="IFSC Code"
-                        aria-label="IFSC Code"
-                      />
+                      <div className="accno">
+                        <input
+                          type="text"
+                          value={bankDetails.accountNumber}
+                          onChange={(e) =>
+                            setBankDetails({
+                              ...bankDetails,
+                              accountNumber: e.target.value,
+                            })
+                          }
+                          placeholder="Account Number"
+                          aria-label="Account Number"
+                        />
+                      </div>
+                      <div className="ifscc">
+                        <input
+                          type="text"
+                          value={bankDetails.ifscCode}
+                          onChange={(e) =>
+                            setBankDetails({
+                              ...bankDetails,
+                              ifscCode: e.target.value,
+                            })
+                          }
+                          placeholder="IFSC Code"
+                          aria-label="IFSC Code"
+                        />
+                      </div>
                     </div>
                   )}
                 {transactionType === "withdraw" && withdrawMethod === "upi" && (
