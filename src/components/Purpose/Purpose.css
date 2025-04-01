@@ -1,0 +1,264 @@
+.purpose-page {
+  min-height: 100vh;
+  background: #1a2338;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  position: relative;
+  padding: 80px 20px;
+  overflow-x: hidden;
+}
+
+.circuit-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+.circuit-line {
+  stroke-width: 2;
+  animation: circuit-flow 5s infinite linear;
+}
+
+.circuit-node {
+  animation: node-pulse 2s infinite ease-in-out;
+}
+
+@keyframes circuit-flow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 50;
+  }
+}
+
+@keyframes node-pulse {
+  0%,
+  100% {
+    r: 5;
+  }
+  50% {
+    r: 7;
+  }
+}
+
+.data-core {
+  text-align: center;
+  margin-bottom: 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.data-core h1 {
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  font-weight: 900;
+  color: #00ddeb;
+  text-shadow: 0 0 15px rgba(0, 221, 235, 0.8);
+  letter-spacing: 2px;
+}
+
+.data-core p {
+  font-size: 1.5rem;
+  color: #e0e0e0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 10px;
+}
+
+.matrix-timeline {
+  max-width: 900px;
+  margin: 0 auto 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-entry {
+  margin-bottom: 40px;
+}
+
+.timeline-entry h2 {
+  font-size: 2rem;
+  color: #00ff99;
+  text-shadow: 0 0 10px rgba(0, 255, 153, 0.8);
+  margin-bottom: 15px;
+}
+
+.timeline-entry p,
+.timeline-entry ul {
+  font-size: 1.2rem;
+  color: #e0e0e0;
+  line-height: 1.6;
+}
+
+.timeline-entry ul {
+  list-style: none;
+  padding: 0;
+}
+
+.timeline-entry ul li {
+  margin: 10px 0;
+  position: relative;
+  padding-left: 20px;
+}
+
+.timeline-entry ul li:before {
+  content: ">";
+  color: #00ddeb;
+  position: absolute;
+  left: 0;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.feature-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 221, 235, 0.3);
+  border-radius: 10px;
+  padding: 25px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.feature-panel.active {
+  transform: translateY(-10px);
+  box-shadow: 0 10px 20px rgba(0, 221, 235, 0.4);
+  border-color: #00ff99;
+}
+
+.feature-panel h3 {
+  font-size: 1.5rem;
+  color: #00ddeb;
+  margin-bottom: 15px;
+  text-shadow: 0 0 5px rgba(0, 221, 235, 0.5);
+}
+
+.feature-panel ul {
+  list-style: none;
+  padding: 0;
+  font-size: 1rem;
+  color: #e0e0e0;
+}
+
+.feature-panel ul li {
+  margin: 10px 0;
+  position: relative;
+  padding-left: 20px;
+}
+
+.feature-panel ul li:before {
+  content: "•";
+  color: #00ff99;
+  position: absolute;
+  left: 0;
+}
+
+.tech-hud {
+  text-align: center;
+  margin-bottom: 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.tech-hud h2 {
+  font-size: 2rem;
+  color: #00ff99;
+  text-shadow: 0 0 10px rgba(0, 255, 153, 0.8);
+  margin-bottom: 40px;
+}
+
+.hud-display {
+  width: 100%;
+  max-width: 600px;
+  height: 400px;
+  margin: 0 auto;
+}
+
+.tech-node {
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.tech-node circle {
+  transition: r 0.3s ease;
+}
+
+.tech-node.expanded circle {
+  r: 25;
+}
+
+.tech-node text {
+  font-size: 12px;
+  fill: #ffffff;
+  text-shadow: 0 0 5px rgba(0, 221, 235, 0.5);
+}
+
+.node-details {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+  color: #e0e0e0;
+  font-size: 12px;
+  text-align: center;
+}
+
+.tech-node.expanded .node-details {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .purpose-page {
+    padding: 60px 15px;
+  }
+
+  .data-core h1 {
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  .data-core p {
+    font-size: 1.2rem;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hud-display {
+    height: 300px;
+  }
+
+  .tech-node text {
+    font-size: 10px;
+  }
+
+  .node-details {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .data-core h1 {
+    font-size: clamp(2rem, 3.5vw, 3rem);
+  }
+
+  .timeline-entry h2 {
+    font-size: 1.5rem;
+  }
+
+  .feature-panel h3 {
+    font-size: 1.3rem;
+  }
+}

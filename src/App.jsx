@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
 import Navbar from "./components/Navbar/Navbar";
 import { Routes, Route } from "react-router-dom";
@@ -13,6 +14,8 @@ import Login from "./components/Login/Login";
 import WishlistPage from "./components/WishlistPage/WishlistPage";
 import Trades from "./components/Navbar/Trades";
 import ProfileSettings from "./components/Navbar/ProfileSettings";
+import ChatBot from "./components/ChatBot/ChatBot.jsx";
+//import Purpose from "./components/Purpose/PurposePage.jsx";
 
 const App = () => {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -38,7 +41,9 @@ const App = () => {
         <Route path="/Wishlist" element={<WishlistPage />} />
         <Route path="/trades" element={<Trades />} />
         <Route path="/profile-settings" element={<ProfileSettings />} />
+        {/*<Route path="/purpose" element={<Purpose />} />*/}
       </Routes>
+      <ChatBot />
       <Footer />
       {isLoginOpen && <Login onClose={closeLogin} />}
       {isSignupOpen && <Signup onClose={closeSignup} />}

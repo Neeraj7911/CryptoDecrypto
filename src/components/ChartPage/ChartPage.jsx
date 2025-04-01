@@ -14,8 +14,16 @@ import {
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../Firebase/firebaseConfig";
-import { FaStar, FaTimes, FaArrowUp, FaArrowDown } from "react-icons/fa";
+import {
+  FaStar,
+  FaTimes,
+  FaArrowUp,
+  FaArrowDown,
+  FaNewspaper,
+} from "react-icons/fa";
 import { CoinContext } from "../../context/CoinContext";
+import TradingViewWidget from "./TradingViewWidget"; // Your chart widget
+import axios from "axios";
 import "./ChartPage.css";
 
 const WishlistButton = ({ coinId }) => {
@@ -39,13 +47,9 @@ const WishlistButton = ({ coinId }) => {
     if (user) {
       const userRef = doc(db, "users", user.uid);
       if (isWishlisted) {
-        await updateDoc(userRef, {
-          wishlist: arrayRemove(coinId),
-        });
+        await updateDoc(userRef, { wishlist: arrayRemove(coinId) });
       } else {
-        await updateDoc(userRef, {
-          wishlist: arrayUnion(coinId),
-        });
+        await updateDoc(userRef, { wishlist: arrayUnion(coinId) });
       }
       setIsWishlisted(!isWishlisted);
     } else {
@@ -55,47 +59,13 @@ const WishlistButton = ({ coinId }) => {
 
   return (
     <button onClick={toggleWishlist} className="wishlist-button">
-      <FaStar color={isWishlisted ? "#ffb74d" : "white"} />
-      {isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+      <FaStar color={isWishlisted ? "#00ff99" : "#ffffff"} />
+      {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
     </button>
   );
 };
 
-const TradingViewChart = ({ coin }) => {
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
-    script.async = true;
-    script.onload = () => {
-      if (typeof TradingView !== "undefined") {
-        new TradingView.widget({
-          autosize: true,
-          symbol: `BITSTAMP:${coin.toUpperCase()}USD`,
-          interval: "D",
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          toolbar_bg: "#f1f3f6",
-          enable_publishing: false,
-          allow_symbol_change: true,
-          container_id: "tradingview-chart",
-        });
-      }
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
-  }, [coin]);
-
-  return <div id="tradingview-chart" className="tradingview-chart"></div>;
-};
-
-const TradingViewWidget = ({ activeTab, coin }) => {
+const TradingViewChartWidget = ({ activeTab, coin }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -113,21 +83,19 @@ const TradingViewWidget = ({ activeTab, coin }) => {
       container.appendChild(script);
     }
 
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+    const timer = setTimeout(() => setIsLoading(false), 2000);
 
     return () => {
       clearTimeout(timer);
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [activeTab, coin]);
 
   return (
     <div className="widget-wrapper">
-      {isLoading && <div className="loading-spinner">Loading...</div>}
+      <div className={`loading-overlay ${isLoading ? "visible" : "hidden"}`}>
+        <div className="spinner"></div>
+      </div>
       <div
         id="widget-container"
         className={`widget-container ${isLoading ? "loading" : "loaded"}`}
@@ -157,7 +125,7 @@ const getWidgetConfig = (activeTab, coin) => {
     width: "100%",
     height: 450,
     colorTheme: "dark",
-    isTransparent: false,
+    isTransparent: true,
     locale: "en",
     symbol: symbol,
   };
@@ -166,21 +134,11 @@ const getWidgetConfig = (activeTab, coin) => {
     case "overview":
       return { ...baseConfig };
     case "analysis":
-      return {
-        ...baseConfig,
-        interval: "1m",
-        showIntervalTabs: true,
-      };
+      return { ...baseConfig, interval: "1m", showIntervalTabs: true };
     case "fundamentals":
-      return {
-        ...baseConfig,
-        height: 550,
-      };
+      return { ...baseConfig, height: 550 };
     case "profile":
-      return {
-        ...baseConfig,
-        height: 550,
-      };
+      return { ...baseConfig, height: 550 };
     default:
       return baseConfig;
   }
@@ -205,6 +163,7 @@ const TransactionModal = ({
       return;
     }
     onTransaction(type, amount, currentPrice);
+    setQuantity("");
     onClose();
   };
 
@@ -217,24 +176,85 @@ const TransactionModal = ({
           <FaTimes />
         </button>
         <h2>
-          {type.charAt(0).toUpperCase() + type.slice(1)} {coinId.toUpperCase()}
+          {type === "buy" ? "Acquire" : "Sell"} {coinId.toUpperCase()}
         </h2>
-        <p>Current Price: ${currentPrice.toFixed(2)}</p>
-        <p>Your Balance: ${balance.toFixed(2)}</p>
+        <p>Price: ${currentPrice.toFixed(2)}</p>
+        <p>Funds: ${balance.toFixed(2)}</p>
         <p>
-          Owned Quantity: {ownedQuantity.toFixed(8)} {coinId.toUpperCase()}
+          Owned: {ownedQuantity.toFixed(8)} {coinId.toUpperCase()}
         </p>
         <input
           type="number"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          placeholder="Enter quantity"
+          placeholder="Quantity"
           className="quantity-input"
         />
         <button onClick={handleTransaction} className={`${type}-button`}>
-          {type.charAt(0).toUpperCase() + type.slice(1)}
+          {type === "buy" ? "Acquire" : "Sell"}
         </button>
       </div>
+    </div>
+  );
+};
+
+const NewsSection = ({ coinId }) => {
+  const [news, setNews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const response = await axios.get(
+          `https://min-api.cryptocompare.com/data/v2/news/?lang=EN&categories=${coinId.toUpperCase()}&api_key=YOUR_CRYPTOCOMPARE_API_KEY`
+        );
+        setNews(response.data.Data.slice(0, 5));
+      } catch (error) {
+        console.error("Error fetching news:", error);
+        setNews([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchNews();
+  }, [coinId]);
+
+  return (
+    <div className="news-section">
+      <h2>
+        <FaNewspaper /> {coinId.toUpperCase()} News
+      </h2>
+      <div className={`loading-overlay ${isLoading ? "visible" : "hidden"}`}>
+        <div className="spinner"></div>
+      </div>
+      {!isLoading && news.length > 0 ? (
+        <div className="news-grid">
+          {news.map((article) => (
+            <a
+              key={article.id}
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="news-card"
+            >
+              <img
+                src={article.imageurl || "/default-news.jpg"}
+                alt={article.title}
+                className="news-image"
+              />
+              <div className="news-content">
+                <h3>{article.title}</h3>
+                <p>{article.body.substring(0, 100)}...</p>
+                <span className="news-source">{article.source}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        !isLoading && (
+          <p>No recent news available for {coinId.toUpperCase()}.</p>
+        )
+      )}
     </div>
   );
 };
@@ -249,14 +269,13 @@ export default function Component() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState("");
   const [ownedQuantity, setOwnedQuantity] = useState(0);
+  const [news, setNews] = useState([]);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
 
   const fetchCoinData = useCallback(() => {
     const coin = allCoin.find((c) => c.id === id || c.symbol === id);
-    if (coin) {
-      setCurrentCoin(coin);
-    } else {
-      console.error("Coin not found");
-    }
+    if (coin) setCurrentCoin(coin);
+    else console.error("Coin not found");
   }, [id, allCoin]);
 
   useEffect(() => {
@@ -278,6 +297,23 @@ export default function Component() {
     });
 
     return () => unsubscribe();
+  }, [id]);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const response = await axios.get(
+          `https://min-api.cryptocompare.com/data/v2/news/?lang=EN&categories=${id.toUpperCase()}&api_key=YOUR_CRYPTOCOMPARE_API_KEY`
+        );
+        setNews(response.data.Data.slice(0, 10));
+        setIsNewsLoading(false);
+      } catch (error) {
+        console.error("Error fetching news for ticker:", error);
+        setNews([]);
+        setIsNewsLoading(false);
+      }
+    };
+    fetchNews();
   }, [id]);
 
   const fetchBalance = async (uid) => {
@@ -325,8 +361,6 @@ export default function Component() {
 
     try {
       const userRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data();
       let newBalance = balance;
       let portfolioUpdate = {};
 
@@ -374,7 +408,7 @@ export default function Component() {
       setBalance(newBalance);
       await fetchOwnedQuantity(user.uid);
       alert(
-        `Successfully ${type === "buy" ? "bought" : "sold"} ${amount} ${id}`
+        `Successfully ${type === "buy" ? "acquired" : "sold"} ${amount} ${id}`
       );
     } catch (error) {
       console.error("Error processing transaction:", error);
@@ -384,12 +418,42 @@ export default function Component() {
 
   return (
     <div className="chart-page">
+      <div className="chart-backdrop"></div>
       <div className="chart-header">
-        <h1 className="title">Real-Time Chart for {id.toUpperCase()}</h1>
+        <h1 className="title">{id.toUpperCase()} Dashboard</h1>
         <WishlistButton coinId={id} />
       </div>
+
+      {/* News Ticker Above Chart */}
+      {!isNewsLoading && news.length > 0 ? (
+        <div className="news-ticker">
+          <div className="ticker-content">
+            {news.map((article) => (
+              <span key={article.id} className="ticker-item">
+                <FaNewspaper className="ticker-icon" /> {article.title}{" "}
+                <span className="ticker-source">[{article.source}]</span> •
+              </span>
+            ))}
+            {news.map((article) => (
+              <span key={`${article.id}-dup`} className="ticker-item">
+                <FaNewspaper className="ticker-icon" /> {article.title}{" "}
+                <span className="ticker-source">[{article.source}]</span> •
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="news-ticker">
+          <div className="ticker-content">
+            <span className="ticker-item">
+              {isNewsLoading ? "Loading news..." : "No recent news available."}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="chart-container">
-        <TradingViewChart coin={id} />
+        <TradingViewWidget coin={id} />
       </div>
       <div className="price-display">
         <span>Current Price: </span>
@@ -404,12 +468,12 @@ export default function Component() {
               }
             >
               {currentCoin.price_change_percentage_24h.toFixed(2)}%
+              {currentCoin.price_change_percentage_24h > 0 ? (
+                <FaArrowUp className="price-arrow" />
+              ) : (
+                <FaArrowDown className="price-arrow" />
+              )}
             </span>
-            {currentCoin.price_change_percentage_24h > 0 ? (
-              <FaArrowUp className="price-arrow up" />
-            ) : (
-              <FaArrowDown className="price-arrow down" />
-            )}
           </>
         ) : (
           <span>Loading...</span>
@@ -423,7 +487,7 @@ export default function Component() {
           }}
           className="buy-button"
         >
-          Buy
+          Acquire
         </button>
         <button
           onClick={() => {
@@ -437,19 +501,19 @@ export default function Component() {
       </div>
       <div className="widget-section">
         <nav className="nav-bar">
-          <button onClick={() => setActiveTab("overview")}>
-            Coin Overview
-          </button>
-          <button onClick={() => setActiveTab("analysis")}>
-            Technical Analysis
-          </button>
-          <button onClick={() => setActiveTab("fundamentals")}>
-            Fundamental Data
-          </button>
-          <button onClick={() => setActiveTab("profile")}>Coin Profile</button>
+          {["overview", "analysis", "fundamentals", "profile"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={activeTab === tab ? "active" : ""}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </nav>
-        <TradingViewWidget activeTab={activeTab} coin={id} />
+        <TradingViewChartWidget activeTab={activeTab} coin={id} />
       </div>
+      <NewsSection coinId={id} />
       {currentCoin && (
         <TransactionModal
           isOpen={isTransactionModalOpen}

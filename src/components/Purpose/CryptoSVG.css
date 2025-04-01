@@ -1,0 +1,99 @@
+.crypto-svg {
+  width: 100%;
+  height: auto;
+  max-width: 600px;
+}
+
+.node {
+  fill: rgba(32, 129, 226, 0.1);
+  stroke: var(--primary);
+  stroke-width: 2;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s ease;
+}
+
+.node.animate {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.node.central {
+  fill: rgba(130, 71, 229, 0.1);
+  stroke: var(--secondary);
+}
+
+.node-text {
+  fill: var(--text);
+  font-size: 12px;
+  text-anchor: middle;
+  font-family: "Space Grotesk", sans-serif;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.node.animate + .node-text {
+  opacity: 1;
+}
+
+.connection {
+  stroke: var(--border);
+  stroke-width: 1.5;
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  transition: stroke-dashoffset 1s ease;
+}
+
+.connection.animate {
+  stroke-dashoffset: 0;
+}
+
+.coin {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.8s ease;
+}
+
+.coin.animate {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.coin.float {
+  animation: float 3s ease-in-out;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.coin-text {
+  fill: white;
+  font-size: 16px;
+  font-weight: bold;
+  text-anchor: middle;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.data-stream {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1;
+  stroke-dasharray: 5, 5;
+  opacity: 0.5;
+  animation: dash 30s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 1000;
+  }
+}

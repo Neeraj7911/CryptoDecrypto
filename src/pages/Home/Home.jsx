@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { CoinContext } from "../../context/CoinContext";
 import { useNavigate } from "react-router-dom";
 import { Typewriter } from "react-simple-typewriter";
@@ -11,27 +11,28 @@ export default function Component() {
   const [displayCoin, setDisplayCoin] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [marketDirection, setMarketDirection] = useState("neutral");
+  const [selectedCoin, setSelectedCoin] = useState(null);
   const navigate = useNavigate();
-  const parallaxRef = useRef(null);
-  const cryptoTableRef = useRef(null);
 
   useEffect(() => {
-    setDisplayCoin(allCoin.sort((a, b) => b.market_cap - a.market_cap));
+    if (allCoin && allCoin.length > 0) {
+      setDisplayCoin(allCoin.sort((a, b) => b.market_cap - a.market_cap));
+      calculateMarketDirection();
+    }
   }, [allCoin]);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (parallaxRef.current) {
-        const scrollPosition = window.pageYOffset;
-        parallaxRef.current.style.transform = `translateY(${
-          scrollPosition * 0.5
-        }px)`;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const calculateMarketDirection = () => {
+    if (!allCoin || allCoin.length === 0) return;
+    const totalChange = allCoin.reduce(
+      (sum, coin) => sum + coin.price_change_percentage_24h,
+      0
+    );
+    const avgChange = totalChange / allCoin.length;
+    if (avgChange > 1) setMarketDirection("bullish");
+    else if (avgChange < -1) setMarketDirection("bearish");
+    else setMarketDirection("neutral");
+  };
 
   const handleSearchChange = (e) => {
     const searchValue = e.target.value.toLowerCase();
@@ -41,10 +42,21 @@ export default function Component() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    filterCoins(searchTerm, selectedCategory);
   };
 
-  const handleCoinClick = (id) => {
-    navigate(`/crypto/${id}`);
+  const handleCoinClick = (coin) => {
+    const potentialScam = isPotentialScam(coin);
+    if (!potentialScam) {
+      navigate(`/crypto/${coin.symbol}`);
+    } else {
+      if (selectedCoin?.symbol === coin.symbol) {
+        setSelectedCoin(null);
+        navigate(`/crypto/${coin.symbol}`);
+      } else {
+        setSelectedCoin(coin);
+      }
+    }
   };
 
   const handleCategoryChange = (category) => {
@@ -53,11 +65,13 @@ export default function Component() {
   };
 
   const filterCoins = (search, category) => {
-    let filteredCoins = allCoin;
+    let filteredCoins = [...allCoin];
 
     if (search) {
-      filteredCoins = filteredCoins.filter((coin) =>
-        coin.name.toLowerCase().includes(search)
+      filteredCoins = filteredCoins.filter(
+        (coin) =>
+          coin.name.toLowerCase().includes(search) ||
+          coin.symbol.toLowerCase().includes(search)
       );
     }
 
@@ -75,9 +89,72 @@ export default function Component() {
             a.price_change_percentage_24h - b.price_change_percentage_24h
         )
         .slice(0, 10);
+    } else {
+      filteredCoins = filteredCoins.sort((a, b) => b.market_cap - a.market_cap);
     }
 
-    setDisplayCoin(filteredCoins.sort((a, b) => b.market_cap - a.market_cap));
+    setDisplayCoin(filteredCoins);
+  };
+
+  const getAction = (priceChange) => {
+    if (priceChange >= 5) return "Launch";
+    if (priceChange >= 0) return priceChange >= 1 ? "Boost" : "Acquire";
+    if (priceChange <= -5) return "Pause";
+    if (priceChange < 0) return priceChange <= -1 ? "Track" : "Scan";
+    return "Acquire";
+  };
+
+  const isPotentialScam = (coin) => {
+    const memeKeywords = [
+      "shib",
+      "doge",
+      "baby",
+      "moon",
+      "floki",
+      "safemoon",
+      "elon",
+      "cum",
+      "pump",
+      "dump",
+      "pepe",
+      "meme",
+      "cat",
+      "dog",
+      "inu",
+    ]; // Expanded list
+    const nameLower = coin.name.toLowerCase();
+    const hasMemeName = memeKeywords.some((keyword) =>
+      nameLower.includes(keyword)
+    );
+    const extremeVolatility = Math.abs(coin.price_change_percentage_24h) > 50;
+    const lowMarketCap = coin.market_cap < 1000000;
+    return hasMemeName || extremeVolatility || lowMarketCap;
+  };
+
+  const getScamRisk = (coin) => {
+    let risk = 0;
+    const memeKeywords = [
+      "shib",
+      "doge",
+      "baby",
+      "moon",
+      "floki",
+      "safemoon",
+      "elon",
+      "cum",
+      "pump",
+      "dump",
+      "pepe",
+      "meme",
+      "cat",
+      "dog",
+      "inu",
+    ];
+    const nameLower = coin.name.toLowerCase();
+    if (memeKeywords.some((keyword) => nameLower.includes(keyword))) risk += 40;
+    if (Math.abs(coin.price_change_percentage_24h) > 50) risk += 30;
+    if (coin.market_cap < 1000000) risk += 30;
+    return Math.min(risk, 100);
   };
 
   const tickerTapeConfig = {
@@ -88,7 +165,7 @@ export default function Component() {
       { description: "bnbusd", proName: "BINANCE:BNBUSD" },
     ],
     showSymbolLogo: true,
-    isTransparent: false,
+    isTransparent: true,
     displayMode: "adaptive",
     colorTheme: "dark",
     locale: "en",
@@ -117,125 +194,164 @@ export default function Component() {
     removeElements();
   }, []);
 
-  const renderCoinCard = (coin) => (
-    <div
-      key={coin.id}
-      className="mover-card"
-      onClick={() => handleCoinClick(coin.symbol)}
-    >
-      <img src={coin.image} alt={coin.name} />
-      <h3>{coin.symbol.toUpperCase()}</h3>
-      <p className={coin.price_change_percentage_24h > 0 ? "green" : "red"}>
-        {coin.price_change_percentage_24h.toFixed(2)}%
-      </p>
-    </div>
-  );
-
   return (
     <div className="home">
-      <div className="parallax-bg" ref={parallaxRef}></div>
-      <div className="content">
-        <div className="hero">
+      <div className="content-container">
+        <section className="command-hub">
           <h1>
-            Live Crypto Market Tracker <br /> With <br />
-            <Typewriter
-              words={[
-                "AI Recommendation",
-                "Analyzed Patterns",
-                "Advanced Analytics",
-                "Real-Time Insights",
-              ]}
-              loop={0}
-              cursor
-              cursorStyle="_"
-              typeSpeed={70}
-              deleteSpeed={50}
-              delaySpeed={1000}
-            />
+            Live Crypto Market Tracker <br />
+            With <br />
+            <span className="typewriter">
+              <Typewriter
+                words={[
+                  "Real-Time Insights",
+                  "Market Mastery",
+                  "Strategic Moves",
+                  "Wealth Control",
+                ]}
+                loop={0}
+                cursor
+                cursorStyle="|"
+                typeSpeed={80}
+                deleteSpeed={50}
+                delaySpeed={1000}
+              />
+            </span>
           </h1>
+        </section>
 
-          <form onSubmit={handleSearchSubmit}>
+        <section className="market-pulse">
+          <div className={`pulse-indicator ${marketDirection}`}>
+            <div className="pulse-arrow"></div>
+            <h2>Market Pulse: {marketDirection.toUpperCase()}</h2>
+            <p>
+              {marketDirection === "bullish"
+                ? "The market is surging! Time to ride the wave."
+                : marketDirection === "bearish"
+                ? "Caution advised: Market trending downward."
+                : "Market stable: Watch for breakout opportunities."}
+            </p>
+          </div>
+        </section>
+
+        <section className="market-ticker">
+          <div id="tradingview-widget" className="ticker-display"></div>
+        </section>
+        <section className="search-brr">
+          <form onSubmit={handleSearchSubmit} className="search-bar">
             <input
               type="text"
-              placeholder="Search Coin"
+              placeholder="Search Crypto Assets..."
               value={searchTerm}
               onChange={handleSearchChange}
             />
             <button type="submit">Search</button>
           </form>
-        </div>
+        </section>
 
-        <div className="Ticker">
-          <div className="tradingview-widget-container">
-            <div
-              id="tradingview-widget"
-              className="tradingview-widget-container__widget"
-            ></div>
-          </div>
-        </div>
-
-        <div className="category-selector">
+        <section className="filter-panel">
           <button
-            className={selectedCategory === "all" ? "active" : ""}
+            className={`filter-option ${
+              selectedCategory === "all" ? "active" : ""
+            }`}
             onClick={() => handleCategoryChange("all")}
           >
-            All Coins
+            All Assets
           </button>
           <button
-            className={selectedCategory === "topMovers" ? "active" : ""}
+            className={`filter-option ${
+              selectedCategory === "topMovers" ? "active" : ""
+            }`}
             onClick={() => handleCategoryChange("topMovers")}
           >
-            Top Movers
+            Top Gainers
           </button>
           <button
-            className={selectedCategory === "topLosers" ? "active" : ""}
+            className={`filter-option ${
+              selectedCategory === "topLosers" ? "active" : ""
+            }`}
             onClick={() => handleCategoryChange("topLosers")}
           >
             Top Losers
           </button>
-        </div>
+        </section>
 
-        <div className="crypto-table" ref={cryptoTableRef}>
-          <div className="table-layout table-header">
-            <p>#</p>
-            <p>Coins</p>
-            <p>Price</p>
-            <p>24H Change</p>
-            <p>Market Cap</p>
-            <p>Buy Recommendation</p>
-          </div>
-
-          {displayCoin.map((item, index) => (
-            <div
-              className="table-layout"
-              key={index}
-              onClick={() => handleCoinClick(item.symbol)}
-            >
-              <p>{item.market_cap_rank}</p>
-              <div>
-                <img src={item.image} alt={item.name} className="coin-image" />
-                <p>{item.name + " (" + item.symbol.toUpperCase() + ")"}</p>
-              </div>
-              <p>
-                {currency.symbol} {item.current_price.toLocaleString()}
-              </p>
-              <p
-                className={
-                  item.price_change_percentage_24h > 0 ? "green" : "red"
-                }
+        <section className="asset-grid">
+          {displayCoin.map((item, index) => {
+            const potentialScam = isPotentialScam(item);
+            const scamRisk = getScamRisk(item);
+            const isSelected = selectedCoin?.symbol === item.symbol;
+            return (
+              <div
+                className={`asset-card ${potentialScam ? "scam-alert" : ""} ${
+                  isSelected ? "selected" : ""
+                }`}
+                key={index}
+                onClick={() => handleCoinClick(item)}
               >
-                {item.price_change_percentage_24h.toFixed(2)}%
-              </p>
-              <p>
-                {currency.symbol}
-                {item.market_cap.toLocaleString()}
-              </p>
-              <p className="buy-recommendation">
-                {item.price_change_percentage_24h > 0 ? "Buy" : "Hold"}
-              </p>
-            </div>
-          ))}
-        </div>
+                <div className="card-header">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="asset-icon"
+                  />
+                  <div className="asset-details">
+                    <h3>{item.symbol.toUpperCase()}</h3>
+                    <span>{item.name}</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <p>
+                    Price: {currency.symbol}
+                    {item.current_price.toLocaleString()}
+                  </p>
+                  <p
+                    className={
+                      item.price_change_percentage_24h >= 0 ? "green" : "red"
+                    }
+                  >
+                    24H: {item.price_change_percentage_24h.toFixed(2)}%
+                  </p>
+                  <p>
+                    Market Cap: {currency.symbol}
+                    {item.market_cap.toLocaleString()}
+                  </p>
+                </div>
+                {isSelected && potentialScam && (
+                  <div className="scam-meter">
+                    <div className="speedometer">
+                      <div className="speedometer-dial">
+                        <div
+                          className="needle"
+                          style={{
+                            "--scam-risk":
+                              -180 + (scamRisk / 100) * (30 - -180), // Map 0-100% to -180° to 30°
+                          }}
+                        ></div>
+                      </div>
+                      <div className="speedometer-labels">
+                        <span className="label-safe">Safe</span>
+                        <span className="label-risky">Risky</span>
+                      </div>
+                    </div>
+                    <p className="scam-warning">
+                      Scam Risk: {scamRisk}% - Click again to proceed
+                    </p>
+                  </div>
+                )}
+                <div className="card-footer">
+                  <span
+                    className={`action-${getAction(
+                      item.price_change_percentage_24h
+                    ).toLowerCase()}`}
+                  >
+                    {getAction(item.price_change_percentage_24h)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </section>
       </div>
     </div>
   );

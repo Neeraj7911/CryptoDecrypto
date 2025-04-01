@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FaWallet,
   FaStar,
@@ -10,6 +10,7 @@ import {
   FaChartLine,
   FaLocationArrow,
   FaBars,
+  FaRobot,
 } from "react-icons/fa";
 import { TbBrandCoinbase } from "react-icons/tb";
 import { QRCodeSVG } from "qrcode.react";
@@ -35,7 +36,7 @@ const DefaultAvatar = () => (
   </svg>
 );
 
-function Navbar({ openLogin, openSignup }) {
+export default function Navbar({ openLogin, openSignup }) {
   const [user, setUser] = useState(null);
   const [profilePic, setProfilePic] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -54,6 +55,11 @@ function Navbar({ openLogin, openSignup }) {
   const [portfolio, setPortfolio] = useState([]);
   const [isPortfolioOpen, setIsPortfolioOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [isAiRecommendationsOpen, setIsAiRecommendationsOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -71,6 +77,26 @@ function Navbar({ openLogin, openSignup }) {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        isDropdownOpen
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   const fetchProfilePic = async (currentUser) => {
     try {
@@ -136,7 +162,6 @@ function Navbar({ openLogin, openSignup }) {
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
   const toggleWallet = () => setIsWalletOpen(!isWalletOpen);
-  const togglePortfolio = () => setIsPortfolioOpen(!isPortfolioOpen);
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   const handleLogout = async () => {
@@ -145,6 +170,7 @@ function Navbar({ openLogin, openSignup }) {
       setIsDropdownOpen(false);
       setProfilePic(null);
       setBalance(0);
+      navigate("/");
     } catch (error) {
       console.error("Error signing out: ", error);
     }
@@ -157,13 +183,10 @@ function Navbar({ openLogin, openSignup }) {
       return;
     }
 
-    const qrData = JSON.stringify({
-      type: "deposit",
-      amount: amount,
-      userId: user.uid,
-      timestamp: Date.now(),
-    });
-    setQrCodeData(qrData);
+    const upiLink = `upi://pay?pa=satya773791@oksbi&pn=FASHION%204ROCK&am=${amount.toFixed(
+      2
+    )}&cu=INR&aid=uGICAgIDtzdjzDw`;
+    setQrCodeData(upiLink);
     setIsQrCodeVisible(true);
   };
 
@@ -200,9 +223,7 @@ function Navbar({ openLogin, openSignup }) {
   };
 
   const verifyDeposit = async () => {
-    const depositData = JSON.parse(qrCodeData);
-    const amount = depositData.amount;
-
+    const amount = parseFloat(transactionAmount);
     try {
       const newBalance = balance + amount;
       await updateDoc(doc(db, "users", user.uid), { balance: newBalance });
@@ -220,6 +241,43 @@ function Navbar({ openLogin, openSignup }) {
     setIsWalletOpen(false);
     setIsPortfolioOpen(false);
     setIsQrCodeVisible(false);
+    setIsAiRecommendationsOpen(false);
+  };
+
+  const fetchAiRecommendations = async (uid) => {
+    try {
+      const possibleActions = ["buy", "hold", "sell"];
+      const possibleReasons = [
+        "Positive market trend",
+        "Stable performance",
+        "Potential market dip",
+      ];
+      const recommendations = portfolio.map((coin) => ({
+        coinId: coin.coinId,
+        action:
+          possibleActions[Math.floor(Math.random() * possibleActions.length)],
+        reason:
+          possibleReasons[Math.floor(Math.random() * possibleReasons.length)],
+      }));
+      setAiRecommendations(recommendations);
+    } catch (error) {
+      console.error("Error fetching AI recommendations:", error);
+      setAiRecommendations([]);
+    }
+  };
+
+  const toggleAiRecommendations = () => {
+    if (!isAiRecommendationsOpen) {
+      fetchAiRecommendations(user.uid);
+    }
+    setIsAiRecommendationsOpen(!isAiRecommendationsOpen);
+  };
+
+  const togglePortfolio = () => {
+    setIsPortfolioOpen(!isPortfolioOpen);
+    if (!isPortfolioOpen) {
+      fetchAiRecommendations(user.uid);
+    }
   };
 
   return (
@@ -229,6 +287,14 @@ function Navbar({ openLogin, openSignup }) {
           <TbBrandCoinbase className="logo-icon" aria-hidden="true" />
           <span className="logo-text">CryptoDecrypto</span>
         </Link>
+
+        <button
+          className="menu-toggle"
+          onClick={toggleMobileMenu}
+          aria-label="Toggle menu"
+        >
+          <FaBars />
+        </button>
 
         <div className={`nav-links ${isMobileMenuOpen ? "open" : ""}`}>
           <ul>
@@ -277,7 +343,7 @@ function Navbar({ openLogin, openSignup }) {
           )}
         </div>
 
-        <div className="nav-right">
+        <div className={`nav-right ${isMobileMenuOpen ? "open" : ""}`}>
           {user ? (
             <>
               <button className="wallet-btn" onClick={toggleWallet}>
@@ -290,7 +356,7 @@ function Navbar({ openLogin, openSignup }) {
               >
                 <FaStar aria-hidden="true" />
               </Link>
-              <div className="profile-container">
+              <div className="profile-container" ref={dropdownRef}>
                 <button
                   className="profile-btn"
                   onClick={toggleDropdown}
@@ -359,13 +425,6 @@ function Navbar({ openLogin, openSignup }) {
             </div>
           )}
         </div>
-        <button
-          className="menu-toggle"
-          onClick={toggleMobileMenu}
-          aria-label="Toggle menu"
-        >
-          <FaBars />
-        </button>
       </div>
 
       {isWalletOpen && (
@@ -381,94 +440,96 @@ function Navbar({ openLogin, openSignup }) {
                 className="close-btn"
                 aria-label="Close modal"
               >
-                &times;
+                ×
               </button>
-              <h2 id="wallet-title">Wallet</h2>
+              <h2 id="wallet-title" className="wallet-title">
+                <FaWallet className="wallet-icon" /> Wallet Hub
+              </h2>
               <div className="wallet-balance">
-                <FaWallet aria-hidden="true" /> Current Balance: $
-                {balance.toFixed(2)}
+                <span className="balance-label">Current Balance:</span>
+                <span className="balance-amount">${balance.toFixed(2)}</span>
               </div>
               <div className="wallet-actions">
                 <div className="transaction-type">
-                  <label>
-                    <input
-                      type="radio"
-                      value="deposit"
-                      checked={transactionType === "deposit"}
-                      onChange={() => setTransactionType("deposit")}
-                    />
+                  <button
+                    className={`type-btn ${
+                      transactionType === "deposit" ? "active" : ""
+                    }`}
+                    onClick={() => setTransactionType("deposit")}
+                  >
                     Deposit
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      value="withdraw"
-                      checked={transactionType === "withdraw"}
-                      onChange={() => setTransactionType("withdraw")}
-                    />
+                  </button>
+                  <button
+                    className={`type-btn ${
+                      transactionType === "withdraw" ? "active" : ""
+                    }`}
+                    onClick={() => setTransactionType("withdraw")}
+                  >
                     Withdraw
-                  </label>
+                  </button>
                 </div>
-                <input
-                  type="number"
-                  value={transactionAmount}
-                  onChange={(e) => setTransactionAmount(e.target.value)}
-                  placeholder={`Enter ${transactionType} amount`}
-                  aria-label={`Enter ${transactionType} amount`}
-                />
+                <div className="transaction-input-container">
+                  <input
+                    type="number"
+                    value={transactionAmount}
+                    onChange={(e) => setTransactionAmount(e.target.value)}
+                    placeholder={`Enter ${transactionType} amount`}
+                    aria-label={`Enter ${transactionType} amount`}
+                    className="transaction-input"
+                  />
+                  <span className="currency-symbol">INR</span>
+                </div>
                 {transactionType === "withdraw" && (
                   <div className="withdraw-method">
-                    <label>
+                    <label className="method-option">
                       <input
                         type="radio"
                         value="bank"
                         checked={withdrawMethod === "bank"}
                         onChange={() => setWithdrawMethod("bank")}
                       />
-                      Bank Transfer
+                      <span>Bank Transfer</span>
                     </label>
-                    <label>
+                    <label className="method-option">
                       <input
                         type="radio"
                         value="upi"
                         checked={withdrawMethod === "upi"}
                         onChange={() => setWithdrawMethod("upi")}
                       />
-                      UPI
+                      <span>UPI</span>
                     </label>
                   </div>
                 )}
                 {transactionType === "withdraw" &&
                   withdrawMethod === "bank" && (
                     <div className="bank-details">
-                      <div className="accno">
-                        <input
-                          type="text"
-                          value={bankDetails.accountNumber}
-                          onChange={(e) =>
-                            setBankDetails({
-                              ...bankDetails,
-                              accountNumber: e.target.value,
-                            })
-                          }
-                          placeholder="Account Number"
-                          aria-label="Account Number"
-                        />
-                      </div>
-                      <div className="ifscc">
-                        <input
-                          type="text"
-                          value={bankDetails.ifscCode}
-                          onChange={(e) =>
-                            setBankDetails({
-                              ...bankDetails,
-                              ifscCode: e.target.value,
-                            })
-                          }
-                          placeholder="IFSC Code"
-                          aria-label="IFSC Code"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={bankDetails.accountNumber}
+                        onChange={(e) =>
+                          setBankDetails({
+                            ...bankDetails,
+                            accountNumber: e.target.value,
+                          })
+                        }
+                        placeholder="Account Number"
+                        aria-label="Account Number"
+                        className="bank-input"
+                      />
+                      <input
+                        type="text"
+                        value={bankDetails.ifscCode}
+                        onChange={(e) =>
+                          setBankDetails({
+                            ...bankDetails,
+                            ifscCode: e.target.value,
+                          })
+                        }
+                        placeholder="IFSC Code"
+                        aria-label="IFSC Code"
+                        className="bank-input"
+                      />
                     </div>
                   )}
                 {transactionType === "withdraw" && withdrawMethod === "upi" && (
@@ -476,19 +537,29 @@ function Navbar({ openLogin, openSignup }) {
                     type="text"
                     value={upiId}
                     onChange={(e) => setUpiId(e.target.value)}
-                    placeholder="UPI ID"
+                    placeholder="UPI ID (e.g., name@upi)"
                     aria-label="UPI ID"
+                    className="upi-input"
                   />
                 )}
-                <button onClick={handleTransaction}>
-                  {transactionType === "deposit" ? "Add Now" : "Withdraw"}
+                <button className="action-btn1" onClick={handleTransaction}>
+                  {transactionType === "deposit" ? "Add Funds" : "Withdraw Now"}
                 </button>
               </div>
               {isQrCodeVisible && (
                 <div className="qr-code-section">
-                  <h3>Scan QR Code to Deposit</h3>
-                  <QRCodeSVG value={qrCodeData} size={256} />
-                  <button onClick={verifyDeposit}>Verify Deposit</button>
+                  <h3 className="qr-title">Scan to Pay</h3>
+                  <QRCodeSVG
+                    value={qrCodeData}
+                    size={256}
+                    className="qr-code"
+                  />
+                  <p className="qr-instruction">
+                    Use your UPI app to scan and pay
+                  </p>
+                  <button className="verify-btn" onClick={verifyDeposit}>
+                    Verify Payment
+                  </button>
                 </div>
               )}
             </div>
@@ -509,31 +580,73 @@ function Navbar({ openLogin, openSignup }) {
                 className="close-btn"
                 aria-label="Close modal"
               >
-                &times;
+                ×
               </button>
-              <h2 id="portfolio-title">Your Crypto Portfolio</h2>
-              <div className="portfolio-list">
-                <div className="portfolio-item portfolio-header">
-                  <span className="coin-id">Coin</span>
-                  <span className="coin-quantity">Quantity</span>
-                  <span className="coin-avg-price">Avg. Price</span>
-                  <span className="coin-status">Status</span>
-                </div>
-                {portfolio.map((coin) => (
-                  <div key={coin.coinId} className="portfolio-item">
-                    <span className="coin-id">{coin.coinId.toUpperCase()}</span>
-                    <span className="coin-quantity">
-                      {coin.quantity.toFixed(8)}
-                    </span>
-                    <span className="coin-avg-price">
-                      ${coin.averagePrice.toFixed(2)}
-                    </span>
-                    <span className={`coin-status ${getCoinStatus(coin)}`}>
-                      {getCoinStatus(coin) === "profit" ? "Profit" : "Loss"}
-                    </span>
+              <h2 id="portfolio-title" className="portfolio-title">
+                <FaChartLine className="portfolio-icon" /> Your Crypto Vault
+              </h2>
+              {portfolio.length > 0 ? (
+                <div className="portfolio-list">
+                  <div className="portfolio-header">
+                    <span className="coin-id">Coin</span>
+                    <span className="coin-quantity">Quantity</span>
+                    <span className="coin-avg-price">Avg. Price</span>
+                    <span className="coin-status">Status</span>
                   </div>
-                ))}
-              </div>
+                  {portfolio.map((coin) => (
+                    <div key={coin.coinId} className="portfolio-item">
+                      <span className="coin-id">
+                        {coin.coinId.toUpperCase()}
+                      </span>
+                      <span className="coin-quantity">
+                        {coin.quantity.toFixed(8)}
+                      </span>
+                      <span className="coin-avg-price">
+                        ${coin.averagePrice.toFixed(2)}
+                      </span>
+                      <span className={`coin-status ${getCoinStatus(coin)}`}>
+                        {getCoinStatus(coin) === "profit" ? "Profit" : "Loss"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-portfolio">
+                  No coins in your portfolio yet!
+                </p>
+              )}
+              <button
+                className="ai-recommendations-btn"
+                onClick={toggleAiRecommendations}
+                disabled={portfolio.length === 0}
+              >
+                <FaRobot /> AI Insights
+              </button>
+              {isAiRecommendationsOpen && (
+                <div className="ai-recommendations">
+                  <h3 className="ai-title">AI Trading Insights</h3>
+                  {aiRecommendations.length > 0 ? (
+                    <ul className="recommendation-list">
+                      {aiRecommendations.map((rec, index) => (
+                        <li
+                          key={index}
+                          className={`recommendation-item ${rec.action}`}
+                        >
+                          <span className="coin-name">
+                            {rec.coinId.toUpperCase()}
+                          </span>
+                          <span className="action">
+                            {rec.action.toUpperCase()}
+                          </span>
+                          <span className="reason">{rec.reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="no-recommendations">No insights available.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -543,9 +656,5 @@ function Navbar({ openLogin, openSignup }) {
 }
 
 function getCoinStatus(coin) {
-  // This function should compare the current price with the average price
-  // For demonstration purposes, we'll use a random boolean
-  return Math.random() > 0.5 ? "profit" : "loss";
+  return Math.random() > 0.5 ? "profit" : "loss"; // Mock status
 }
-
-export default Navbar;

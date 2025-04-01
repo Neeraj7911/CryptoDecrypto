@@ -77,7 +77,7 @@ export default function Footer() {
         <div className="footer-thanks">
           <h3>Special Thanks</h3>
           <p>
-            We extend our gratitude to{" "}
+            I extend my sincere gratitude to{" "}
             <a
               href="https://www.tradingview.com/"
               target="_blank"
