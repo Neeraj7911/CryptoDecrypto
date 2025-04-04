@@ -18,8 +18,19 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { auth, db } from "../../Firebase/firebaseConfig"; // Adjust path to your Firebase config
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { OpenAI } from "openai";
 import "./Features.css";
-const API_KEY = "AIzaSyDvPDGnYgR7w9m5kk4k4zQDv5XiYLVN38g"; // Replace with your actual API key
+
+// Initialize OpenAI client with aiMLAPI
+const client = new OpenAI({
+  baseURL: "https://api.aimlapi.com/v1",
+  apiKey:
+    import.meta.env.VITE_AIML_API_KEY || "1cfdd8ab06124b3b9749cef9dc0b9c54",
+  dangerouslyAllowBrowser: true,
+});
 
 export default function Features() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -30,6 +41,7 @@ export default function Features() {
   const [inputMessage, setInputMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const messagesEndRef = useRef(null);
   const [dailyMessageCount, setDailyMessageCount] = useState(0);
   const [walletBalance, setWalletBalance] = useState(1); // Initial balance of $1
@@ -68,8 +80,22 @@ export default function Features() {
     },
   ];
 
+  // Firebase auth state listener
   useEffect(() => {
-    // Reset daily message count at midnight
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setIsLoggedIn(!!user);
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists() && userDoc.data().wishlist) {
+          // Optionally use wishlist if needed in Features
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Reset daily message count at midnight
+  useEffect(() => {
     const now = new Date();
     const night = new Date(
       now.getFullYear(),
@@ -93,11 +119,9 @@ export default function Features() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(scrollToBottom, [conversations]);
-
-  const handleStartChat = () => {
-    setIsChatOpen(true);
-    if (conversations[0].messages.length === 0) {
+  useEffect(() => {
+    scrollToBottom();
+    if (isChatOpen && conversations[0].messages.length === 0 && isLoggedIn) {
       setConversations((prevConversations) =>
         prevConversations.map((conv) =>
           conv.id === 1
@@ -115,11 +139,15 @@ export default function Features() {
         )
       );
     }
+  }, [conversations, isChatOpen, isLoggedIn]);
+
+  const handleStartChat = () => {
+    setIsChatOpen(true);
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (inputMessage.trim() === "") return;
+    if (inputMessage.trim() === "" || !isLoggedIn) return;
 
     if (dailyMessageCount >= 3) {
       if (walletBalance < 0.5) {
@@ -155,29 +183,28 @@ export default function Features() {
         currentDateTime: currentDateTime,
       };
 
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
-        {
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are a cryptocurrency expert assistant for CRYPTODECRYPTO. Provide accurate and helpful information about cryptocurrencies. Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
-                    contextData
-                  )}. Include the current date and time only if explicitly asked. User query: ${inputMessage}`,
-                },
-              ],
-            },
-          ],
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a cryptocurrency expert assistant for CRYPTODECRYPTO. 
+              Never refuse to provide buy/sell recommendations for Bitcoin (BTC) when asked - always give a clear recommendation with reasoning.
+              Provide accurate and helpful information about cryptocurrencies. 
+              Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
+                contextData
+              )}. 
+              Include the current date and time only when relevant to the query. User query: ${inputMessage}`,
+          },
+          {
+            role: "user",
+            content: inputMessage,
+          },
+        ],
+      });
 
       const aiResponse =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "No response received.";
+        response.choices[0].message.content || "No response received.";
       setConversations((prevConversations) =>
         prevConversations.map((conv) =>
           conv.id === activeConversation
@@ -193,6 +220,15 @@ export default function Features() {
       );
     } catch (error) {
       console.error("Error:", error);
+      let errorMessage =
+        "Error: Unable to process your request. Please try again.";
+      if (error.response?.status === 403) {
+        errorMessage =
+          "Error: Access forbidden. Check your API key or account permissions.";
+      } else if (error.response?.status === 429) {
+        errorMessage =
+          "Error: Rate limit exceeded. Please wait and try again later.";
+      }
       setConversations((prevConversations) =>
         prevConversations.map((conv) =>
           conv.id === activeConversation
@@ -200,11 +236,7 @@ export default function Features() {
                 ...conv,
                 messages: [
                   ...conv.messages,
-                  {
-                    id: Date.now(),
-                    text: "Error: Unable to process your request. Retry?",
-                    isAi: true,
-                  },
+                  { id: Date.now(), text: errorMessage, isAi: true },
                 ],
               }
             : conv
@@ -350,31 +382,46 @@ export default function Features() {
                 </div>
               </header>
               <div className="messages">
-                {conversations
-                  .find((conv) => conv.id === activeConversation)
-                  ?.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`message ${message.isAi ? "ai" : "user"}`}
-                    >
-                      <ReactMarkdown>{message.text}</ReactMarkdown>
-                    </div>
-                  ))}
-                {isLoading && <div className="loading">Decoding...</div>}
+                {isLoggedIn ? (
+                  conversations
+                    .find((conv) => conv.id === activeConversation)
+                    ?.messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`message ${message.isAi ? "ai" : "user"}`}
+                      >
+                        <ReactMarkdown>{message.text}</ReactMarkdown>
+                      </div>
+                    ))
+                ) : (
+                  <div className="login-prompt">
+                    <p>Please log in to access the Crypto AI Chat.</p>
+                  </div>
+                )}
+                {isLoading && isLoggedIn && (
+                  <div className="loading">Decoding...</div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
-              <form onSubmit={handleSendMessage} className="chat-input">
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Transmit your query..."
-                  className="input-field"
-                />
-                <button type="submit" className="send-btn" disabled={isLoading}>
-                  <Send size={22} />
-                </button>
-              </form>
+              {isLoggedIn && (
+                <form onSubmit={handleSendMessage} className="chat-input">
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    placeholder="Transmit your query..."
+                    className="input-field"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="submit"
+                    className="send-btn"
+                    disabled={isLoading}
+                  >
+                    <Send size={22} />
+                  </button>
+                </form>
+              )}
             </main>
           </div>
           <button className="close-btn" onClick={() => setIsChatOpen(false)}>

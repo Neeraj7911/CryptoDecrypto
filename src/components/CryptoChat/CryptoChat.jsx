@@ -1,30 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Send } from "lucide-react";
 
-const API_KEY = "AIzaSyDvPDGnYgR7w9m5kk4k4zQDv5XiYLVN38g"; // Replace with your actual API key
+// Use environment variable or fallback to your provided key
+const API_KEY =
+  import.meta.env.VITE_AIML_API_KEY || "1cfdd8ab06124b3b9749cef9dc0b9c54";
 
 export default function CryptoChat() {
   const [inputMessage, setInputMessage] = useState("");
   const [conversations, setConversations] = useState([
-    { id: 1, title: "Crypto Chat", messages: [] },
+    {
+      id: 1,
+      title: "Crypto Chat",
+      messages: [
+        {
+          id: Date.now(),
+          text: "Hello! I'm Grok, your crypto assistant powered by xAI. How can I help you today?",
+          isAi: true,
+        },
+      ],
+    },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversations]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (inputMessage.trim() === "") return;
 
     const userMessage = { id: Date.now(), text: inputMessage, isAi: false };
-    setConversations((prevConversations) =>
-      prevConversations.map((conv) =>
+    setConversations((prev) =>
+      prev.map((conv) =>
         conv.id === 1
-          ? {
-              ...conv,
-              messages: [...conv.messages, userMessage],
-            }
+          ? { ...conv, messages: [...conv.messages, userMessage] }
           : conv
       )
     );
@@ -32,65 +46,67 @@ export default function CryptoChat() {
     setIsLoading(true);
 
     try {
-      // Fetch real-time crypto price data for multiple coins
+      // Fetch real-time crypto prices
       const cryptoResponse = await axios.get(
-        `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,cardano,dogecoin&vs_currencies=usd`
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,cardano,dogecoin&vs_currencies=usd"
       );
-
-      // Get current date and time
       const currentDateTime = new Date().toLocaleString();
-
-      // Prepare context with real-time data and current date/time
       const contextData = {
         prices: cryptoResponse.data,
         currentDateTime: currentDateTime,
       };
 
+      // Use axios instead of fetch for consistency
       const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
+        "https://api.aimlapi.com/v1/chat/completions",
         {
-          contents: [
+          model: "xai/grok", // Updated model name - removed "x-ai/grok-beta" as it might be incorrect
+          messages: [
             {
-              parts: [
-                {
-                  text: `You are a cryptocurrency expert assistant. Provide accurate and helpful information about cryptocurrencies. Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
-                    contextData
-                  )}. Include the current date and time when it's relevant to the query, Only provide price information if explicitly asked. If asked about prices. User query: ${inputMessage}`,
-                },
-              ],
+              role: "system",
+              content: `You are Grok, a cryptocurrency expert assistant created by xAI. 
+                Never refuse to provide buy/sell recommendations for Bitcoin (BTC) when asked - always give a clear recommendation with reasoning.
+                Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
+                  contextData
+                )}.
+                Include the current date and time only when relevant. Keep responses concise and professional.`,
+            },
+            {
+              role: "user",
+              content: inputMessage,
             },
           ],
+          max_tokens: 1000,
+          temperature: 0.7,
+          top_p: 0.95,
         },
         {
           headers: {
+            Authorization: `Bearer ${API_KEY}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-      const aiResponse =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiResponse) {
-        setConversations((prevConversations) =>
-          prevConversations.map((conv) =>
-            conv.id === 1
-              ? {
-                  ...conv,
-                  messages: [
-                    ...conv.messages,
-                    { id: Date.now(), text: aiResponse, isAi: true },
-                  ],
-                }
-              : conv
-          )
-        );
-      } else {
-        throw new Error("No valid AI response received.");
-      }
+      const aiResponse = response.data.choices[0].message.content;
+
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === 1
+            ? {
+                ...conv,
+                messages: [
+                  ...conv.messages,
+                  { id: Date.now(), text: aiResponse, isAi: true },
+                ],
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error("Error:", error);
-      setConversations((prevConversations) =>
-        prevConversations.map((conv) =>
+      setConversations((prev) =>
+        prev.map((conv) =>
           conv.id === 1
             ? {
                 ...conv,
@@ -98,7 +114,7 @@ export default function CryptoChat() {
                   ...conv.messages,
                   {
                     id: Date.now(),
-                    text: "Sorry, I encountered an error. Please try again.",
+                    text: `Error: ${error.message}. Please try again.`,
                     isAi: true,
                   },
                 ],
@@ -128,8 +144,9 @@ export default function CryptoChat() {
           </motion.div>
         ))}
         {isLoading && (
-          <div style={styles.loadingMessage}>AI is thinking...</div>
+          <div style={styles.loadingMessage}>Grok is analyzing...</div>
         )}
+        <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSendMessage} style={styles.inputForm}>
         <div style={styles.inputContainer}>
@@ -139,6 +156,7 @@ export default function CryptoChat() {
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="Ask about crypto..."
             style={styles.messageInput}
+            disabled={isLoading}
           />
           <button type="submit" style={styles.sendButton} disabled={isLoading}>
             <Send size={20} />
@@ -164,9 +182,10 @@ const styles = {
   },
   message: {
     marginBottom: "15px",
-    padding: "10px",
+    padding: "12px 16px",
     borderRadius: "8px",
     maxWidth: "80%",
+    lineHeight: "1.4",
   },
   userMessage: {
     backgroundColor: "#2b5278",
@@ -180,29 +199,34 @@ const styles = {
   loadingMessage: {
     fontStyle: "italic",
     color: "#888",
+    padding: "10px",
   },
   inputForm: {
     padding: "20px",
     backgroundColor: "#2a2a2a",
+    borderTop: "1px solid #3a3a3a",
   },
   inputContainer: {
     display: "flex",
+    gap: "10px",
   },
   messageInput: {
     flex: 1,
-    padding: "10px",
+    padding: "12px",
     fontSize: "16px",
     border: "none",
-    borderRadius: "4px 0 0 4px",
+    borderRadius: "4px",
     backgroundColor: "#3a3a3a",
     color: "white",
+    outline: "none",
   },
   sendButton: {
-    padding: "10px 20px",
+    padding: "12px 24px",
     backgroundColor: "#4a90e2",
     color: "white",
     border: "none",
-    borderRadius: "0 4px 4px 0",
+    borderRadius: "4px",
     cursor: "pointer",
+    transition: "background-color 0.2s",
   },
 };

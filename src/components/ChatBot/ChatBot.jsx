@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { Send, X, MessageSquare } from "lucide-react";
 import { auth, db } from "../../Firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { OpenAI } from "openai";
+import axios from "axios"; // Add axios for CoinGecko API
 import "./ChatBot.css";
 
-const API_KEY = "AIzaSyDvPDGnYgR7w9m5kk4k4zQDv5XiYLVN38g"; // Replace with your actual API key
 const RobotSVG = () => (
   <svg
     width="60"
@@ -31,6 +31,13 @@ const RobotSVG = () => (
   </svg>
 );
 
+// Initialize OpenAI client
+const client = new OpenAI({
+  baseURL: "https://api.aimlapi.com/v1",
+  apiKey: import.meta.env.VITE_AIML_API_KEY,
+  dangerouslyAllowBrowser: true,
+});
+
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -38,28 +45,24 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [robotRecommendation, setRobotRecommendation] = useState(null);
-  const [robotAppearCount, setRobotAppearCount] = useState(0); // Counter for peeps
+  const [robotAppearCount, setRobotAppearCount] = useState(0);
   const [wishlistedCoins, setWishlistedCoins] = useState([]);
   const messagesEndRef = useRef(null);
   const location = useLocation();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user ? "Logged in" : "Logged out");
       setIsLoggedIn(!!user);
       if (user) {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists() && userDoc.data().wishlist) {
           setWishlistedCoins(userDoc.data().wishlist);
-          console.log("Wishlisted coins:", userDoc.data().wishlist);
         } else {
           setWishlistedCoins([]);
-          console.log("No wishlist found or empty");
         }
       } else {
         setWishlistedCoins([]);
       }
-      // Reset count on auth change (e.g., login/logout or page reload)
       setRobotAppearCount(0);
     });
     return () => unsubscribe();
@@ -82,19 +85,9 @@ export default function ChatBot() {
     scrollToBottom();
   }, [isOpen, isLoggedIn]);
 
-  // Robot recommendation logic
   useEffect(() => {
-    console.log(
-      "Robot effect triggered: isOpen=",
-      isOpen,
-      "isLoggedIn=",
-      isLoggedIn,
-      "robotAppearCount=",
-      robotAppearCount
-    );
     if (isOpen || !isLoggedIn) {
-      console.log("Robot not active: Chatbot open or user not logged in");
-      setRobotRecommendation(null); // Clear robot when chatbot opens or user logs out
+      setRobotRecommendation(null);
       return;
     }
 
@@ -108,10 +101,6 @@ export default function ChatBot() {
     ];
 
     const showRobotRecommendation = (customText = null) => {
-      console.log(
-        "Showing robot recommendation:",
-        customText || "Random prediction"
-      );
       if (customText) {
         setRobotRecommendation({ text: customText, id: Date.now() });
       } else {
@@ -130,18 +119,15 @@ export default function ChatBot() {
       }
 
       setTimeout(() => {
-        console.log("Hiding robot recommendation");
         setRobotRecommendation(null);
         if (!customText) setRobotAppearCount((prev) => prev + 1);
-      }, 3000); // Show for 3 seconds
+      }, 3000);
     };
 
-    // Check if on a coin page
     const pathSegments = location.pathname.split("/").filter(Boolean);
     const isCoinPage = pathSegments[0] === "coins" && pathSegments.length === 2;
     if (isCoinPage) {
       const coinName = pathSegments[1];
-      console.log("Detected coin page:", coinName);
       setTimeout(() => {
         showRobotRecommendation(
           `CryptoBot 3000 predicts: Need a detailed prediction for **${coinName.toUpperCase()}**? Open the chat!`
@@ -149,28 +135,16 @@ export default function ChatBot() {
       }, 1000);
     }
 
-    // Regular peeping every 5 seconds when chatbot is closed, limited to 4 times
     if (robotAppearCount < 4) {
-      console.log("Setting up robot peeping interval every 5 seconds");
       const interval = setInterval(() => {
         if (robotAppearCount < 4) {
-          console.log("Robot peeping triggered, count:", robotAppearCount);
           showRobotRecommendation();
-        } else {
-          console.log("Robot peeping stopped: Reached 4 times");
         }
       }, 20000);
 
-      // Initial peep immediately when chatbot is closed
-      console.log("Initial robot peep triggered");
       showRobotRecommendation();
 
-      return () => {
-        console.log("Cleaning up robot interval");
-        clearInterval(interval);
-      };
-    } else {
-      console.log("Robot peeping not started: Already reached 4 times");
+      return () => clearInterval(interval);
     }
   }, [
     isOpen,
@@ -190,8 +164,9 @@ export default function ChatBot() {
     setIsLoading(true);
 
     try {
+      // Fetch real-time crypto prices from CoinGecko
       const cryptoResponse = await axios.get(
-        `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,cardano,dogecoin&vs_currencies=usd`
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,cardano,dogecoin&vs_currencies=usd"
       );
       const currentDateTime = new Date().toLocaleString();
       const contextData = {
@@ -199,29 +174,23 @@ export default function ChatBot() {
         currentDateTime: currentDateTime,
       };
 
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
-        {
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are a cryptocurrency expert assistant for CRYPTODECRYPTO. Provide accurate and helpful information about cryptocurrencies. Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
-                    contextData
-                  )}. Include the current date and time only if explicitly asked. User query: ${inputMessage}`,
-                },
-              ],
-            },
-          ],
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a cryptocurrency expert assistant for CRYPTODECRYPTO. Provide accurate and helpful information about cryptocurrencies. Only provide price information if explicitly asked. If asked about prices, use this data: ${JSON.stringify(
+              contextData
+            )}. Include the current date and time only when relevant to the query. User query: ${inputMessage}`,
+          },
+          {
+            role: "user",
+            content: inputMessage,
+          },
+        ],
+      });
 
-      const aiResponse =
-        response.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "No response received.";
+      const aiResponse = response.choices[0].message.content;
       setMessages((prev) => [
         ...prev,
         { id: Date.now(), text: aiResponse, isAi: true },
